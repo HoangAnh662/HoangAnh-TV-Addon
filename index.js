@@ -122,7 +122,26 @@ async function getChannels() {
   const text = await loadM3U();
   return parseM3U(text);
 }
+// ==========================================
+// POSTER TÊN KÊNH THEO NHÓM
+// ==========================================
 
+function getGroupColor(channel) {
+  const text = `${channel.name} ${channel.group}`.toUpperCase();
+
+  if (text.includes("VTV")) return "1565C0";
+  if (text.includes("ON")) return "8E24AA";
+  if (text.includes("HTV") || text.includes("HTVC")) return "00897B";
+  if (text.includes("SCTV")) return "D32F2F";
+
+  return "455A64";
+}
+
+function makeChannelPoster(channel) {
+  const color = getGroupColor(channel);
+
+  return `https://placehold.co/500x500/${color}/FFFFFF.png?text=${encodeURIComponent(channel.name)}`;
+}
 // ==========================================
 // CATALOG
 // ==========================================
@@ -139,7 +158,7 @@ builder.defineCatalogHandler(async args => {
       id: channel.id,
       type: "tv",
       name: channel.name,
-      poster: channel.logo || undefined,
+      poster: makeChannelPoster(channel),
       posterShape: "square",
       description: channel.group
     }));
@@ -172,7 +191,7 @@ builder.defineMetaHandler(async args => {
         id: channel.id,
         type: "tv",
         name: channel.name,
-        poster: channel.logo || undefined,
+        poster: makeChannelPoster(channel),
         posterShape: "square",
         description: channel.group
       }
