@@ -1,217 +1,190 @@
 const { addonBuilder, serveHTTP } = require("stremio-addon-sdk");
-const fs = require("fs");
-const path = require("path");
 
-const PORT = Number(process.env.PORT || 7000);
+// ==========================================
+// CẤU HÌNH
+// ==========================================
+
+const M3U_URL =
+  "https://raw.githubusercontent.com/HoangAnh662/Vietnam-TV/main/playlist.m3u";
 
 const manifest = {
-  id: "org.tinhlagi.live",
-  version: "1.0.0",
-  name: "HoàngAnh",
-  description: "Danh sách kênh TV từ coban66.m3u",
+  id: "org.hoanganh.tv",
+  version: "6.6.2",
+  name: "HoàngAnh TV",
+  description: "Truyền hình trực tuyến Việt Nam",
+
   resources: ["catalog", "meta", "stream"],
   types: ["tv"],
+
   catalogs: [
     {
       type: "tv",
-      id: "tinhlagi",
-      name: "HoàngAnh",
-      extra: [{ name: "search", isRequired: false }]
+      id: "hoanganhtv",
+      name: "HoàngAnh TV"
     }
   ],
-  idPrefixes: ["tinhlagi:"],
-  behaviorHints: {
-    configurable: false,
-    configurationRequired: false
-  }
+
+  idPrefixes: ["hoanganhtv:"]
 };
 
 const builder = new addonBuilder(manifest);
 
-function encodeId(item) {
-  const payload = JSON.stringify({
-    n: item.name,
-    u: item.url
+// ==========================================
+// TẢI FILE M3U
+// ==========================================
+
+async function loadM3U() {
+  const response = await fetch(M3U_URL, {
+    headers: {
+      "User-Agent": "Mozilla/5.0"
+    }
   });
 
-  return "tinhlagi:" +
-    Buffer.from(payload, "utf8").toString("base64url");
-}
-
-function decodeId(id) {
-  if (!id || !id.startsWith("tinhlagi:")) {
-    return null;
-  }
-
-  try {
-    const raw = Buffer.from(
-      id.slice("tinhlagi:".length),
-      "base64url"
-    ).toString("utf8");
-
-    const obj = JSON.parse(raw);
-
-    if (
-      !obj ||
-      typeof obj.n !== "string" ||
-      typeof obj.u !== "string"
-    ) {
-      return null;
-    }
-
-    return {
-      name: obj.n,
-      url: obj.u
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function loadItems() {
-  const m3uPath = path.join(__dirname, "coban66.m3u");
-
-  const content = fs.readFileSync(m3uPath, "utf8");
-  const lines = content.split(/\r?\n/);
-
-  const items = [];
-  let current = null;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    if (line.startsWith("#EXTINF:")) {
-      const name =
-        line.substring(line.lastIndexOf(",") + 1).trim();
-
-      const logoMatch =
-  line.match(/tvg-logo="([^"]*)"/i);
-
-const originalLogo = logoMatch ? logoMatch[1] : null;
-
-const poster = originalLogo;
-current = {
-  name,
-  poster
-};
-      continue;
-    }
-
-    if (
-      current &&
-      line &&
-      !line.startsWith("#")
-    ) {
-      items.push({
-        name: current.name,
-        url: line,
-        poster: current.poster
-      });
-
-      current = null;
-    }
-  }
-
-  if (!items.length) {
+  if (!response.ok) {
     throw new Error(
-      "Không đọc được kênh từ coban66.m3u"
+      `Không tải được playlist.m3u: HTTP ${response.status}`
     );
   }
 
-  return items;
+  return await response.text();
 }
 
-function toMeta(item) {
-  const poster =
-    item.poster ||
-    `https://placehold.co/512x512/202020/FFFFFF.png?text=${encodeURIComponent(item.name)}`;
+// ==========================================
+// ĐỌC DANH SÁCH KÊNH
+// ==========================================
 
-  return {
-    id: encodeId(item),
-    type: "tv",
-    name: item.name,
-    description: "Nguồn: coban66.m3u",
-    poster,
-    background: poster,
-    posterShape: "square"
-  };
+function parseM3U(text) {
+  const lines = text
+    .replace(/\r/g, "")
+    .split("\n")
+    .map(line => line.trim());
+
+  const channels = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (!line.startsWith("#EXTINF:")) continue;
+
+    const logo =
+      line.match(/tvg-logo="([^"]*)"/i)?.[1] || "";
+
+    const group =
+      line.match(/group-title="([^"]*)"/i)?.[1] || "TV";
+
+    const tvgName =
+      line.match(/tvg-name="([^"]*)"/i)?.[1] || "";
+
+    const commaIndex = line.indexOf(",");
+    const displayName =
+      commaIndex !== -1
+        ? line.substring(commaIndex + 1).trim()
+        : "";
+
+    const name =
+      displayName ||
+      tvgName ||
+      `Kênh ${channels.length + 1}`;
+
+    // Tìm URL stream tiếp theo
+    let url = "";
+
+    for (let j = i + 1; j < lines.length; j++) {
+      if (!lines[j]) continue;
+
+      if (lines[j].startsWith("#EXTINF:")) {
+        break;
+      }
+
+      if (!lines[j].startsWith("#")) {
+        url = lines[j];
+        break;
+      }
+    }
+
+    if (!url) continue;
+
+    const id = `hoanganhtv:${channels.length + 1}`;
+
+    channels.push({
+      id,
+      name,
+      logo,
+      group,
+      url
+    });
+  }
+
+  return channels;
 }
 
-builder.defineCatalogHandler(
-  async ({ type, id, extra }) => {
-    if (type !== "tv" || id !== "tinhlagi") {
-      return { metas: [] };
-    }
+async function getChannels() {
+  const text = await loadM3U();
+  return parseM3U(text);
+}
 
-    try {
-      let items = await loadItems();
+// ==========================================
+// CATALOG
+// ==========================================
 
-      const q =
-        (extra && extra.search
-          ? String(extra.search)
-          : "")
-          .trim()
-          .toLowerCase();
-
-      if (q) {
-        items = items.filter(item =>
-          item.name.toLowerCase().includes(q)
-        );
-      }
-
-      return {
-        metas: items.map(toMeta)
-      };
-    } catch (err) {
-      console.error("catalog:", err);
-      return { metas: [] };
-    }
-  }
-);
-
-builder.defineMetaHandler(async ({ type, id }) => {
-  if (type !== "tv") {
-    return { meta: null };
+builder.defineCatalogHandler(async args => {
+  if (args.type !== "tv" || args.id !== "hoanganhtv") {
+    return { metas: [] };
   }
 
-  const item = decodeId(id);
+  try {
+    const channels = await getChannels();
 
-  if (!item) {
-    return { meta: null };
+    const metas = channels.map(channel => ({
+      id: channel.id,
+      type: "tv",
+      name: channel.name,
+      poster: channel.logo || undefined,
+      posterShape: "square",
+      description: channel.group
+    }));
+
+    return { metas };
+  } catch (error) {
+    console.error("Catalog error:", error);
+    return { metas: [] };
   }
-
-  return {
-    meta: toMeta(item)
-  };
 });
 
-builder.defineStreamHandler(async ({ type, id }) => {
-  if (type !== "tv") {
-    return { streams: [] };
-  }
+// ==========================================
+// META
+// ==========================================
 
-  const item = decodeId(id);
+builder.defineMetaHandler(async args => {
+  try {
+    const channels = await getChannels();
 
-  if (!item) {
-    return { streams: [] };
-  }
+    const channel = channels.find(
+      item => item.id === args.id
+    );
 
-  return {
-    streams: [
-      {
-        name: "HoàngAnh TV",
-        title: item.name,
-        url: item.url
+    if (!channel) {
+      return { meta: null };
+    }
+
+    return {
+      meta: {
+        id: channel.id,
+        type: "tv",
+        name: channel.name,
+        poster: channel.logo || undefined,
+        posterShape: "square",
+        description: channel.group
       }
-    ]
-  };
+    };
+  } catch (error) {
+    console.error("Meta error:", error);
+    return { meta: null };
+  }
 });
 
-serveHTTP(
-  builder.getInterface(),
-  { port: PORT }
-);
+// ==========================================
+// STREAM
+// ==========================================
 
-console.log(
-  `Stremio addon: http://127.0.0.1:${PORT}/manifest.json`
-);
+builder
