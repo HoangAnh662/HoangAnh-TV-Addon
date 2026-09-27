@@ -1,16 +1,15 @@
 {
-  "name": "tinhlagi-stremio-addon",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Stremio addon đọc danh sách từ tinhlagi.pro/tivi/",
+  "name": "hoanganh-tv-addon",
+  "version": "6.6.2",
+  "description": "HoangAnh TV Stremio Addon",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "stremio-addon-sdk": "^1.6.10"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
