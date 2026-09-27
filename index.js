@@ -14,28 +14,23 @@ const manifest = {
   description: "Truyền hình trực tuyến Việt Nam",
 
   resources: ["catalog", "meta", "stream"],
-  types: ["tv", "series"],
+  types: ["tv"],
 
   catalogs: [
     {
       type: "tv",
       id: "hoanganhtv",
       name: "HoàngAnh TV"
-    },
-    {
-      type: "series",
-      id: "hoanganhtv-switch",
-      name: "HoàngAnh TV - Chuyển kênh"
     }
   ],
 
-  idPrefixes: ["hoanganhtv:", "hoanganhtv-switch"]
+  idPrefixes: ["hoanganhtv:"]
 };
 
 const builder = new addonBuilder(manifest);
 
 // ==========================================
-// TẢI M3U
+// TẢI FILE M3U
 // ==========================================
 
 async function loadM3U() {
@@ -97,7 +92,9 @@ function parseM3U(text) {
     for (let j = i + 1; j < lines.length; j++) {
       if (!lines[j]) continue;
 
-      if (lines[j].startsWith("#EXTINF:")) break;
+      if (lines[j].startsWith("#EXTINF:")) {
+        break;
+      }
 
       if (!lines[j].startsWith("#")) {
         url = lines[j];
@@ -125,7 +122,7 @@ async function getChannels() {
 }
 
 // ==========================================
-// POSTER Ô MÀU
+// POSTER Ô VUÔNG MÀU
 // ==========================================
 
 function getGroupColor(channel) {
@@ -161,48 +158,26 @@ function makeChannelPoster(channel) {
 // ==========================================
 
 builder.defineCatalogHandler(async args => {
+  if (
+    args.type !== "tv" ||
+    args.id !== "hoanganhtv"
+  ) {
+    return { metas: [] };
+  }
+
   try {
     const channels = await getChannels();
 
-    // Catalog kênh bình thường
-    if (
-      args.type === "tv" &&
-      args.id === "hoanganhtv"
-    ) {
-      return {
-        metas: channels.map(channel => ({
-          id: channel.id,
-          type: "tv",
-          name: channel.name,
-          poster: makeChannelPoster(channel),
-          posterShape: "square",
-          description: channel.group
-        }))
-      };
-    }
+    const metas = channels.map(channel => ({
+      id: channel.id,
+      type: "tv",
+      name: channel.name,
+      poster: makeChannelPoster(channel),
+      posterShape: "square",
+      description: channel.group
+    }));
 
-    // Catalog chuyển kênh
-    if (
-      args.type === "series" &&
-      args.id === "hoanganhtv-switch"
-    ) {
-      return {
-        metas: [
-          {
-            id: "hoanganhtv-switch",
-            type: "series",
-            name: "HoàngAnh TV",
-            poster:
-              "https://placehold.co/500x500/1565C0/FFFFFF.png?text=HoangAnh+TV",
-            posterShape: "square",
-            description:
-              "Chọn kênh truyền hình để xem"
-          }
-        ]
-      };
-    }
-
-    return { metas: [] };
+    return { metas };
   } catch (error) {
     console.error("Catalog error:", error);
     return { metas: [] };
@@ -217,62 +192,24 @@ builder.defineMetaHandler(async args => {
   try {
     const channels = await getChannels();
 
-    // Meta từng kênh TV
-    if (args.type === "tv") {
-      const channel = channels.find(
-        item => item.id === args.id
-      );
+    const channel = channels.find(
+      item => item.id === args.id
+    );
 
-      if (!channel) {
-        return { meta: null };
+    if (!channel) {
+      return { meta: null };
+    }
+
+    return {
+      meta: {
+        id: channel.id,
+        type: "tv",
+        name: channel.name,
+        poster: makeChannelPoster(channel),
+        posterShape: "square",
+        description: channel.group
       }
-
-      return {
-        meta: {
-          id: channel.id,
-          type: "tv",
-          name: channel.name,
-          poster: makeChannelPoster(channel),
-          posterShape: "square",
-          description: channel.group
-        }
-      };
-    }
-
-    // Meta danh sách chuyển kênh
-    if (
-      args.type === "series" &&
-      args.id === "hoanganhtv-switch"
-    ) {
-      const videos = channels.map(
-        (channel, index) => ({
-          id: `hoanganhtv-switch:${index + 1}`,
-          title: channel.name,
-          season: 1,
-          episode: index + 1,
-          released:
-            new Date().toISOString(),
-          thumbnail:
-            makeChannelPoster(channel)
-        })
-      );
-
-      return {
-        meta: {
-          id: "hoanganhtv-switch",
-          type: "series",
-          name: "HoàngAnh TV",
-          poster:
-            "https://placehold.co/500x500/1565C0/FFFFFF.png?text=HoangAnh+TV",
-          posterShape: "square",
-          description:
-            "Chọn kênh bên dưới để chuyển kênh",
-          videos
-        }
-      };
-    }
-
-    return { meta: null };
+    };
   } catch (error) {
     console.error("Meta error:", error);
     return { meta: null };
@@ -287,54 +224,23 @@ builder.defineStreamHandler(async args => {
   try {
     const channels = await getChannels();
 
-    // Phát từ catalog TV bình thường
-    if (args.type === "tv") {
-      const channel = channels.find(
-        item => item.id === args.id
-      );
+    const channel = channels.find(
+      item => item.id === args.id
+    );
 
-      if (!channel) {
-        return { streams: [] };
-      }
-
-      return {
-        streams: [
-          {
-            name: "HoàngAnh TV",
-            title: channel.name,
-            url: channel.url
-          }
-        ]
-      };
+    if (!channel) {
+      return { streams: [] };
     }
 
-    // Phát kênh từ danh sách dạng episode
-    if (
-      args.type === "series" &&
-      args.id.startsWith("hoanganhtv-switch:")
-    ) {
-      const number = Number(
-        args.id.split(":")[1]
-      );
-
-      const channel = channels[number - 1];
-
-      if (!channel) {
-        return { streams: [] };
-      }
-
-      return {
-        streams: [
-          {
-            name: "HoàngAnh TV",
-            title: channel.name,
-            url: channel.url
-          }
-        ]
-      };
-    }
-
-    return { streams: [] };
+    return {
+      streams: [
+        {
+          name: "HoàngAnh TV",
+          title: channel.name,
+          url: channel.url
+        }
+      ]
+    };
   } catch (error) {
     console.error("Stream error:", error);
     return { streams: [] };
@@ -351,6 +257,4 @@ serveHTTP(builder.getInterface(), {
   port: PORT
 });
 
-console.log(
-  `HoàngAnh TV đang chạy tại port ${PORT}`
-);
+console.log(`HoàngAnh TV đang chạy tại port ${PORT}`);
