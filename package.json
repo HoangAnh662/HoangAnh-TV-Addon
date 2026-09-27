@@ -1,7 +1,7 @@
 {
   "name": "hoanganh-tv-addon",
   "version": "6.6.2",
-  "description": "HoangAnh TV Stremio Addon",
+  "description": "HoangAnh TV Stremio and Nuvio Addon",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
