@@ -187,4 +187,41 @@ builder.defineMetaHandler(async args => {
 // STREAM
 // ==========================================
 
-builder
+builder.defineStreamHandler(async args => {
+  try {
+    const channels = await getChannels();
+
+    const channel = channels.find(
+      item => item.id === args.id
+    );
+
+    if (!channel) {
+      return { streams: [] };
+    }
+
+    return {
+      streams: [
+        {
+          name: "HoàngAnh TV",
+          title: channel.name,
+          url: channel.url
+        }
+      ]
+    };
+  } catch (error) {
+    console.error("Stream error:", error);
+    return { streams: [] };
+  }
+});
+
+// ==========================================
+// KHỞI ĐỘNG SERVER
+// ==========================================
+
+const PORT = process.env.PORT || 7000;
+
+serveHTTP(builder.getInterface(), {
+  port: PORT
+});
+
+console.log(`HoàngAnh TV đang chạy tại port ${PORT}`);
