@@ -10,7 +10,7 @@ const M3U_URL =
 const manifest = {
   id: "org.hoanganh.tv",
   version: "6.6.2",
-  name: "HoàngAnh TV",
+  name: "HoàngAnh",
 description: "Truyền hình trực tuyến Việt Nam",
 logo: "https://raw.githubusercontent.com/HoangAnh662/HoangAnh-TV-Addon/main/logo.png",
 
@@ -21,7 +21,7 @@ resources: ["catalog", "meta", "stream"],
     {
       type: "tv",
       id: "hoanganhtv",
-      name: "HoàngAnh TV"
+      name: "HoàngAnh"
     }
   ],
 
