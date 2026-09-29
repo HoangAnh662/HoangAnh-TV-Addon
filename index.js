@@ -175,7 +175,7 @@ builder.defineCatalogHandler(async args => {
       name: channel.name,
       poster: makeChannelPoster(channel),
       posterShape: "square",
-      description: channel.group
+      description: ""
     }));
 
     return { metas };
