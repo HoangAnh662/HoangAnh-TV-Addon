@@ -11,9 +11,10 @@ const manifest = {
   id: "org.hoanganh.tv",
   version: "6.6.2",
   name: "HoàngAnh TV",
-  description: "Truyền hình trực tuyến Việt Nam",
+description: "Truyền hình trực tuyến Việt Nam",
+logo: "https://raw.githubusercontent.com/HoangAnh662/HoangAnh-TV-Addon/main/logo.png",
 
-  resources: ["catalog", "meta", "stream"],
+resources: ["catalog", "meta", "stream"],
   types: ["tv"],
 
   catalogs: [
